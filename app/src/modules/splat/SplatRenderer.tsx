@@ -42,7 +42,6 @@ export function SplatRenderer({
   metricScaleFactor = 1,
 }: Props) {
   const renderer = useThree((state) => state.gl)
-  const viewerQuality = useDebugStore((s) => s.viewerQuality)
   const splatRef = useRef<SplatMesh>(null)
   const sparkRef = useRef<SparkRenderer>(null)
 

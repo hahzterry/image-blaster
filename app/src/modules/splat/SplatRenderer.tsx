@@ -34,7 +34,6 @@ interface Props {
   metricScaleFactor?: number
 }
 
-
 export function SplatRenderer({
   url,
   visible = true,
@@ -42,72 +41,66 @@ export function SplatRenderer({
   flipY,
   metricScaleFactor = 1,
 }: Props) {
-    const renderer = useThree((state) => state.gl)
-    const viewerQuality = useDebugStore((s) => s.viewerQuality)
-    const splatRef = useRef<SplatMesh>(null)
-    const sparkRef = useRef<SparkRenderer>(null)
-    const encodeLinear = viewerQuality === ViewerQuality.High
-    const initialEncodeLinear = useRef(encodeLinear)
+  const renderer = useThree((state) => state.gl)
+  const viewerQuality = useDebugStore((s) => s.viewerQuality)
+  const splatRef = useRef<SplatMesh>(null)
+  const sparkRef = useRef<SparkRenderer>(null)
 
-    // Patch the SparkRenderer's vertex shader once to add our custom CoC curve
-    // and inject `sharpRange` / `falloffRate` uniforms.
-    useEffect(() => {
-      const spark = sparkRef.current
-      if (!spark) return
-      const mat = spark.material
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const u = mat.uniforms as any
-      if (!u.sharpRange) u.sharpRange = { value: DEFAULT_SHARP_RANGE }
-      if (!u.falloffRate) u.falloffRate = { value: DEFAULT_FALLOFF_RATE }
-      if (!mat.vertexShader.includes('uniform float sharpRange;')) {
-        mat.vertexShader = mat.vertexShader
-          .replace(APERTURE_DECL, APERTURE_DECL_PLUS)
-          .replace(ORIGINAL_FOCUS_BLUR, CUSTOM_FOCUS_BLUR)
-        mat.needsUpdate = true
-      }
-    }, [])
+  // Patch the SparkRenderer's vertex shader once to add our custom CoC curve
+  // and inject `sharpRange` / `falloffRate` uniforms.
+  useEffect(() => {
+    const spark = sparkRef.current
+    if (!spark) return
+    const mat = spark.material
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const u = mat.uniforms as any
+    if (!u.sharpRange) u.sharpRange = { value: DEFAULT_SHARP_RANGE }
+    if (!u.falloffRate) u.falloffRate = { value: DEFAULT_FALLOFF_RATE }
+    if (!mat.vertexShader.includes('uniform float sharpRange;')) {
+      mat.vertexShader = mat.vertexShader
+        .replace(APERTURE_DECL, APERTURE_DECL_PLUS)
+        .replace(ORIGINAL_FOCUS_BLUR, CUSTOM_FOCUS_BLUR)
+      mat.needsUpdate = true
+    }
+  }, [])
 
-    useFrame(() => {
-      const spark = sparkRef.current
-      if (!spark) return
-      const s = useDebugStore.getState()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const u = spark.material.uniforms as any
-      if (s.viewerQuality === ViewerQuality.High && s.dofEnabled) {
-        spark.focalDistance = s.focalDistance
-        spark.apertureAngle = s.apertureAngle
-        spark.falloff = s.falloff
-        if (u.sharpRange) u.sharpRange.value = Number.isFinite(s.sharpRange) ? s.sharpRange : DEFAULT_SHARP_RANGE
-        if (u.falloffRate) u.falloffRate.value = s.falloffRate > 0 ? s.falloffRate : DEFAULT_FALLOFF_RATE
-      } else {
-        spark.focalDistance = 0
-        spark.apertureAngle = 0
-        spark.falloff = 1
-      }
-    })
+  useFrame(() => {
+    const spark = sparkRef.current
+    if (!spark) return
+    const s = useDebugStore.getState()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const u = spark.material.uniforms as any
+    if (s.viewerQuality === ViewerQuality.High && s.dofEnabled) {
+      spark.focalDistance = s.focalDistance
+      spark.apertureAngle = s.apertureAngle
+      spark.falloff = s.falloff
+      if (u.sharpRange) u.sharpRange.value = Number.isFinite(s.sharpRange) ? s.sharpRange : DEFAULT_SHARP_RANGE
+      if (u.falloffRate) u.falloffRate.value = s.falloffRate > 0 ? s.falloffRate : DEFAULT_FALLOFF_RATE
+    } else {
+      spark.focalDistance = 0
+      spark.apertureAngle = 0
+      spark.falloff = 1
+    }
+  })
 
-    useEffect(() => {
-      if (splatRef.current) splatRef.current.raycast = ignoreRaycast
-      if (sparkRef.current) sparkRef.current.raycast = ignoreRaycast
-    }, [])
+  useEffect(() => {
+    if (splatRef.current) splatRef.current.raycast = ignoreRaycast
+    if (sparkRef.current) sparkRef.current.raycast = ignoreRaycast
+  }, [])
 
-    useEffect(() => {
-      if (sparkRef.current) sparkRef.current.encodeLinear = encodeLinear
-    }, [encodeLinear])
+  const sparkArgs = useMemo(() => ({ renderer, enableLod: true }), [renderer])
+  const splatArgs = useMemo(
+    () => ({
+      url,
+    }),
+    [url],
+  )
 
-    const sparkArgs = useMemo(() => ({ renderer, enableLod: true, encodeLinear: initialEncodeLinear.current }), [renderer])
-    const splatArgs = useMemo(
-      () => ({
-        url,
-      }),
-      [url],
-    )
-
-    return (
-      <SparkRendererEl ref={sparkRef} args={[sparkArgs]} visible={visible}>
-        <group position={[0, groundPlaneOffset, 0]} rotation={[flipY ? Math.PI : 0, 0, 0]} scale={metricScaleFactor}>
-          <SplatMeshEl ref={splatRef} args={[splatArgs]} />
-        </group>
-      </SparkRendererEl>
-    )
+  return (
+    <SparkRendererEl ref={sparkRef} args={[sparkArgs]} visible={visible}>
+      <group position={[0, groundPlaneOffset, 0]} rotation={[flipY ? Math.PI : 0, 0, 0]} scale={metricScaleFactor}>
+        <SplatMeshEl ref={splatRef} args={[splatArgs]} />
+      </group>
+    </SparkRendererEl>
+  )
 }
